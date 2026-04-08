@@ -1,0 +1,113 @@
+spec_version: 1
+name: ops_risk_env
+display_name: "Operational Risk Incident Triage"
+description: >
+  A real-world OpenEnv environment where an AI agent acts as an operational-risk
+  analyst. The agent reviews synthetic incident bundles, decides whether each
+  pattern is a documented known issue, an emerging operational signal, or low-value
+  noise, and recommends the correct follow-up action. Tasks cover a known fleet
+  behavior, a clustered warehouse automation regression, and a confounded
+  multi-system interaction case that requires root-cause reasoning rather than
+  surface blame assignment.
+type: space
+runtime: fastapi
+app: server.app:app
+port: 7860
+tags:
+  - openenv
+  - operations
+  - logistics
+  - incident-triage
+  - reinforcement-learning
+
+action_space:
+  type: structured
+  fields:
+    - name: classification
+      type: string
+      values: [new_signal, known_side_effect, noise, duplicate]
+      description: "Top-level incident classification chosen by the agent"
+    - name: suspect_drug
+      type: string
+      description: "Legacy protocol field carrying the likely causal asset or interaction"
+    - name: severity_assessment
+      type: string
+      values: [mild, moderate, severe, critical]
+      description: "Agent-assigned business severity for the case"
+    - name: recommended_action
+      type: string
+      values: [escalate, log_and_monitor, dismiss, request_more_info]
+      description: "Operational follow-up decision"
+    - name: reasoning
+      type: string
+      description: "Brief free-text rationale used for partial credit on the hard task"
+
+observation_space:
+  type: structured
+  fields:
+    - name: task_id
+      type: string
+      description: "Identifier of the current scenario"
+    - name: reports
+      type: array
+      description: "One or more synthetic incident records included in the case"
+    - name: drug_interaction_db
+      type: object
+      description: "Hardcoded operational reference data visible to the agent"
+    - name: step_number
+      type: integer
+      description: "Current step index within the episode"
+    - name: max_steps
+      type: integer
+      description: "Maximum number of steps allowed in the episode"
+    - name: feedback
+      type: string
+      required: false
+      description: "Human-readable feedback from the previous action"
+
+reward:
+  min: 0.0
+  max: 1.0
+  description: >
+    Reward is built from four 0.25 components for classification correctness,
+    causal source selection, severity assessment, and recommended operational
+    action. A false alarm penalty of -0.10 applies when the agent escalates a
+    case that is truly noise, and a larger missed-signal penalty of -0.20
+    applies when the agent dismisses a true new signal. The hard task can earn
+    an additional +0.15 reasoning bonus when the explanation explicitly
+    references the cross-system interaction or monitoring clues.
+
+difficulties:
+  - easy
+  - medium
+  - hard
+
+max_steps: 1
+
+tasks:
+  - id: known_signal_easy
+    difficulty: easy
+    description: >
+      Review a synthetic fleet incident in which a transit guidance system shows
+      GPS drift inside a tunnel corridor and many similar recent cases already
+      exist. The correct behavior is to recognize this as a known documented
+      effect and recommend routine logging and monitoring rather than escalation.
+    grader: graders.known_signal_easy_grader
+
+  - id: cluster_signal_medium
+    difficulty: medium
+    description: >
+      Review a clustered set of recent warehouse automation incidents tied to a
+      newly launched navigation stack. The reports show freezes and aisle
+      congestion despite the reference documentation lacking that failure mode.
+      The agent should detect an emerging signal and escalate.
+    grader: graders.cluster_signal_medium_grader
+
+  - id: confounded_hard
+    difficulty: hard
+    description: >
+      Review a confounded fulfillment-center case in which the reporter blames
+      the wrong module. The correct judgment requires identifying a
+      FlowManager-VisionPatch interaction, recognizing critical overload risk,
+      and escalating the case as a serious new signal.
+    grader: graders.confounded_hard_grader
